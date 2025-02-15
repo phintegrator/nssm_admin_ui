@@ -7,9 +7,9 @@
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Smooth fade animation for refresh indicator */
-        .fade {
-            transition: opacity 0.5s ease-in-out;
+        /* Smooth fade animation for modal */
+        .modal-fade {
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
         }
     </style>
 </head>
@@ -17,13 +17,18 @@
 
     <div class="max-w-6xl mx-auto bg-white shadow-lg rounded-lg p-6 relative" x-data="nssmServiceManager()" x-init="fetchServices(); startAutoRefresh()">
         
-        <!-- 📌 Welcome Message & Logout (Upper Right) -->
-        <template x-if="isLoggedIn">
-            <div class="absolute top-3 right-3 text-sm text-gray-600 flex items-center space-x-3">
-                <span>Welcome, Admin</span>
-                <button class="text-xs bg-red-500 text-white px-2 py-1 rounded" @click="logout()">Logout</button>
-            </div>
-        </template>
+        <!-- 📌 Login / Logout Button (Upper Right) -->
+        <div class="absolute top-3 right-3 text-sm text-gray-600 flex items-center space-x-3">
+            <template x-if="isLoggedIn">
+                <div class="flex items-center space-x-3">
+                    <span>Welcome, Admin</span>
+                    <button class="text-xs bg-red-500 text-white px-2 py-1 rounded" @click="logout()">Logout</button>
+                </div>
+            </template>
+            <template x-if="!isLoggedIn">
+                <button class="text-xs bg-blue-500 text-white px-3 py-1 rounded" @click="showLoginModal = true">Login</button>
+            </template>
+        </div>
 
         <h1 class="text-2xl font-bold mb-4">🚀 NSSM Service Manager</h1>
 
@@ -86,6 +91,19 @@
             </table>
         </div>
 
+        <!-- 📌 Login Modal -->
+        <div x-show="showLoginModal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center" @click.away="showLoginModal = false">
+            <div class="bg-white p-6 rounded-lg shadow-lg modal-fade transform scale-95" x-transition.opacity x-transition.scale>
+                <h2 class="text-xl font-semibold mb-4">🔐 Login</h2>
+                <input type="text" class="border p-2 rounded w-full mb-2" placeholder="Username" x-model="loginForm.username">
+                <input type="password" class="border p-2 rounded w-full mb-2" placeholder="Password" x-model="loginForm.password">
+                <div class="flex justify-between">
+                    <button class="bg-blue-500 text-white px-4 py-2 rounded" @click="login()">Login</button>
+                    <button class="text-gray-500" @click="showLoginModal = false">Cancel</button>
+                </div>
+            </div>
+        </div>
+
         <!-- 📌 Notifications -->
         <p x-show="message" class="mt-4 p-3 bg-green-100 text-green-700 rounded" x-text="message"></p>
     </div>
@@ -96,6 +114,7 @@
                 services: [],
                 isLoggedIn: localStorage.getItem("loggedIn") === "true",
                 loginForm: { username: '', password: '' },
+                showLoginModal: false,
                 refreshRate: 5, // Default refresh rate in seconds
                 refreshInterval: null,
                 isRefreshing: false,
@@ -103,55 +122,24 @@
 
                 async fetchServices() {
                     try {
-                        this.isRefreshing = true; // Show refresh indicator
+                        this.isRefreshing = true;
                         let response = await fetch("http://127.0.0.1:54321/services");
                         let data = await response.json();
                         this.services = data.services;
                     } catch (error) {
                         console.error("Error fetching services:", error);
                     } finally {
-                        // Keep refresh indicator visible for 1.5 seconds
                         setTimeout(() => {
                             this.isRefreshing = false;
                         }, 1500);
                     }
                 },
 
-                async startService(serviceName) {
-                    if (!this.isLoggedIn) return;
-                    let response = await fetch(`http://127.0.0.1:54321/services/${serviceName}/start`, { method: 'POST' });
-                    let data = await response.json();
-                    this.message = data.message || "Error starting service.";
-                    this.fetchServices();
-                },
-
-                async stopService(serviceName) {
-                    if (!this.isLoggedIn) return;
-                    let response = await fetch(`http://127.0.0.1:54321/services/${serviceName}/stop`, { method: 'POST' });
-                    let data = await response.json();
-                    this.message = data.message || "Error stopping service.";
-                    this.fetchServices();
-                },
-
-                async removeService(serviceName) {
-                    if (!this.isLoggedIn) return;
-                    let response = await fetch(`http://127.0.0.1:54321/services/${serviceName}`, { method: 'DELETE' });
-                    let data = await response.json();
-                    this.message = data.message || "Error removing service.";
-                    this.fetchServices();
-                },
-
-                startAutoRefresh() {
-                    if (this.refreshInterval) clearInterval(this.refreshInterval);
-                    this.refreshInterval = setInterval(() => {
-                        this.fetchServices();
-                    }, this.refreshRate * 1000);
-                },
-
                 login() {
                     if (this.loginForm.username === "admin" && this.loginForm.password === "admin") {
                         this.isLoggedIn = true;
                         localStorage.setItem("loggedIn", "true");
+                        this.showLoginModal = false;
                         this.message = "Login successful!";
                     } else {
                         this.message = "Invalid credentials.";
@@ -162,7 +150,14 @@
                     this.isLoggedIn = false;
                     localStorage.removeItem("loggedIn");
                     this.message = "Logged out successfully.";
-                }
+                },
+
+                startAutoRefresh() {
+                    if (this.refreshInterval) clearInterval(this.refreshInterval);
+                    this.refreshInterval = setInterval(() => {
+                        this.fetchServices();
+                    }, this.refreshRate * 1000);
+                },
             };
         }
     </script>
