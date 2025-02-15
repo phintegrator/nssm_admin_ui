@@ -9,7 +9,7 @@
 </head>
 <body class="bg-gray-100 p-5">
 
-    <div class="max-w-6xl mx-auto bg-white shadow-lg rounded-lg p-6" x-data="nssmServiceManager()">
+    <div class="max-w-6xl mx-auto bg-white shadow-lg rounded-lg p-6" x-data="nssmServiceManager()" x-init="fetchServices(); startAutoRefresh()">
         <h1 class="text-2xl font-bold mb-4">🚀 NSSM Service Manager</h1>
 
         <!-- 📌 Login / Logout Section -->
@@ -30,9 +30,14 @@
             </template>
         </div>
 
-        <!-- 📌 Service List -->
-        <button class="bg-blue-500 text-white px-4 py-2 rounded mb-4" @click="fetchServices()">Refresh Services</button>
+        <!-- 📌 Auto Refresh Settings -->
+        <div class="flex items-center space-x-4 mb-4">
+            <span>Auto Refresh Rate:</span>
+            <input type="number" class="border p-2 rounded w-20" x-model="refreshRate" @change="startAutoRefresh()">
+            <span>seconds</span>
+        </div>
 
+        <!-- 📌 Service List -->
         <div class="overflow-x-auto">
             <table class="w-full border-collapse border border-gray-300 text-sm">
                 <thead>
@@ -69,20 +74,6 @@
             </table>
         </div>
 
-        <!-- 📌 Install New Service Form (Only for Logged-in Users) -->
-        <template x-if="isLoggedIn">
-            <div class="mt-6">
-                <h2 class="text-xl font-semibold">Install New Service</h2>
-                <div class="grid grid-cols-2 gap-4 mt-2">
-                    <input type="text" class="border p-2 rounded" placeholder="Service Name" x-model="newService.service_name">
-                    <input type="text" class="border p-2 rounded" placeholder="Executable Path" x-model="newService.executable_path">
-                    <input type="text" class="border p-2 rounded" placeholder="Startup Directory" x-model="newService.startup_directory">
-                    <input type="text" class="border p-2 rounded" placeholder="Arguments (Optional)" x-model="newService.arguments">
-                    <button class="col-span-2 bg-blue-500 text-white px-4 py-2 rounded" @click="installService()">Install Service</button>
-                </div>
-            </div>
-        </template>
-
         <!-- 📌 Notifications -->
         <p x-show="message" class="mt-4 p-3 bg-green-100 text-green-700 rounded" x-text="message"></p>
     </div>
@@ -93,7 +84,8 @@
                 services: [],
                 isLoggedIn: localStorage.getItem("loggedIn") === "true",
                 loginForm: { username: '', password: '' },
-                newService: { service_name: '', executable_path: '', startup_directory: '', arguments: '' },
+                refreshRate: 5, // Default refresh rate in seconds
+                refreshInterval: null,
                 message: '',
 
                 async fetchServices() {
@@ -130,16 +122,11 @@
                     this.fetchServices();
                 },
 
-                async installService() {
-                    if (!this.isLoggedIn) return;
-                    let response = await fetch("http://127.0.0.1:54321/services", {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(this.newService)
-                    });
-                    let data = await response.json();
-                    this.message = data.message || "Error installing service.";
-                    this.fetchServices();
+                startAutoRefresh() {
+                    if (this.refreshInterval) clearInterval(this.refreshInterval);
+                    this.refreshInterval = setInterval(() => {
+                        this.fetchServices();
+                    }, this.refreshRate * 1000);
                 },
 
                 login() {
