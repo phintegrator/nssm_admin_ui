@@ -27,25 +27,25 @@
 
         <h1 class="text-2xl font-bold mb-4">🚀 NSSM Service Manager</h1>
 
-        <!-- 📌 Login Section -->
-        <div class="mb-4" x-show="!isLoggedIn">
-            <input type="text" class="border p-2 rounded" placeholder="Username" x-model="loginForm.username">
-            <input type="password" class="border p-2 rounded" placeholder="Password" x-model="loginForm.password">
-            <button class="bg-blue-500 text-white px-4 py-2 rounded" @click="login()">Login</button>
-        </div>
+        <!-- 📌 Refresh Indicator (Left) & Auto-Refresh Rate Selector (Right) -->
+        <div class="flex justify-between items-center mb-4">
+            <!-- Refresh Indicator (Left) -->
+            <div class="h-8 flex items-center">
+                <div class="fade flex items-center space-x-2" x-show="isRefreshing" x-transition.opacity>
+                    <div class="animate-spin h-4 w-4 border-t-2 border-blue-500 border-solid rounded-full"></div>
+                    <span class="text-blue-500 text-sm font-semibold">Refreshing...</span>
+                </div>
+            </div>
 
-        <!-- 📌 Auto Refresh Settings -->
-        <div class="flex items-center space-x-4 mb-4">
-            <span>Auto Refresh Rate:</span>
-            <input type="number" class="border p-2 rounded w-20" x-model="refreshRate" @change="startAutoRefresh()">
-            <span>seconds</span>
-        </div>
-
-        <!-- 📌 Refresh Indicator (Prevents UI flicker) -->
-        <div class="h-8 flex items-center justify-start mb-4">
-            <div class="fade flex items-center space-x-2" x-show="isRefreshing" x-transition.opacity>
-                <div class="animate-spin h-5 w-5 border-t-2 border-blue-500 border-solid rounded-full"></div>
-                <span class="text-blue-500 font-semibold">Refreshing Services...</span>
+            <!-- Auto-Refresh Rate Selector (Right) -->
+            <div class="flex items-center space-x-2">
+                <span class="text-sm text-gray-700">Auto Refresh:</span>
+                <select class="border p-1 text-sm rounded" x-model="refreshRate" @change="startAutoRefresh()">
+                    <option value="5">5s</option>
+                    <option value="10">10s</option>
+                    <option value="30">30s</option>
+                    <option value="60">60s</option>
+                </select>
             </div>
         </div>
 
