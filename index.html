@@ -37,6 +37,12 @@
             <span>seconds</span>
         </div>
 
+        <!-- 📌 Refresh Indicator -->
+        <div class="mb-4 flex items-center space-x-2" x-show="isRefreshing">
+            <div class="animate-spin h-5 w-5 border-t-2 border-blue-500 border-solid rounded-full"></div>
+            <span class="text-blue-500 font-semibold">Refreshing...</span>
+        </div>
+
         <!-- 📌 Service List -->
         <div class="overflow-x-auto">
             <table class="w-full border-collapse border border-gray-300 text-sm">
@@ -86,15 +92,19 @@
                 loginForm: { username: '', password: '' },
                 refreshRate: 5, // Default refresh rate in seconds
                 refreshInterval: null,
+                isRefreshing: false,
                 message: '',
 
                 async fetchServices() {
                     try {
+                        this.isRefreshing = true; // Show refresh indicator
                         let response = await fetch("http://127.0.0.1:54321/services");
                         let data = await response.json();
                         this.services = data.services;
                     } catch (error) {
                         console.error("Error fetching services:", error);
+                    } finally {
+                        this.isRefreshing = false; // Hide refresh indicator
                     }
                 },
 
