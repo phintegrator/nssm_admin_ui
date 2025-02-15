@@ -15,25 +15,23 @@
 </head>
 <body class="bg-gray-100 p-5">
 
-    <div class="max-w-6xl mx-auto bg-white shadow-lg rounded-lg p-6" x-data="nssmServiceManager()" x-init="fetchServices(); startAutoRefresh()">
+    <div class="max-w-6xl mx-auto bg-white shadow-lg rounded-lg p-6 relative" x-data="nssmServiceManager()" x-init="fetchServices(); startAutoRefresh()">
+        
+        <!-- 📌 Welcome Message & Logout (Upper Right) -->
+        <template x-if="isLoggedIn">
+            <div class="absolute top-3 right-3 text-sm text-gray-600 flex items-center space-x-3">
+                <span>Welcome, Admin</span>
+                <button class="text-xs bg-red-500 text-white px-2 py-1 rounded" @click="logout()">Logout</button>
+            </div>
+        </template>
+
         <h1 class="text-2xl font-bold mb-4">🚀 NSSM Service Manager</h1>
 
-        <!-- 📌 Login / Logout Section -->
-        <div class="mb-4 flex justify-between">
-            <template x-if="!isLoggedIn">
-                <div>
-                    <input type="text" class="border p-2 rounded" placeholder="Username" x-model="loginForm.username">
-                    <input type="password" class="border p-2 rounded" placeholder="Password" x-model="loginForm.password">
-                    <button class="bg-blue-500 text-white px-4 py-2 rounded" @click="login()">Login</button>
-                </div>
-            </template>
-
-            <template x-if="isLoggedIn">
-                <div class="flex items-center">
-                    <span class="text-green-600 font-semibold mr-4">Welcome, Admin</span>
-                    <button class="bg-red-500 text-white px-4 py-2 rounded" @click="logout()">Logout</button>
-                </div>
-            </template>
+        <!-- 📌 Login Section -->
+        <div class="mb-4" x-show="!isLoggedIn">
+            <input type="text" class="border p-2 rounded" placeholder="Username" x-model="loginForm.username">
+            <input type="password" class="border p-2 rounded" placeholder="Password" x-model="loginForm.password">
+            <button class="bg-blue-500 text-white px-4 py-2 rounded" @click="login()">Login</button>
         </div>
 
         <!-- 📌 Auto Refresh Settings -->
@@ -43,7 +41,7 @@
             <span>seconds</span>
         </div>
 
-        <!-- 📌 Refresh Indicator (Placeholder for no flicker effect) -->
+        <!-- 📌 Refresh Indicator (Prevents UI flicker) -->
         <div class="h-8 flex items-center justify-start mb-4">
             <div class="fade flex items-center space-x-2" x-show="isRefreshing" x-transition.opacity>
                 <div class="animate-spin h-5 w-5 border-t-2 border-blue-500 border-solid rounded-full"></div>
@@ -112,10 +110,10 @@
                     } catch (error) {
                         console.error("Error fetching services:", error);
                     } finally {
-                        // Keep refresh indicator visible for a short duration
+                        // Keep refresh indicator visible for 1.5 seconds
                         setTimeout(() => {
                             this.isRefreshing = false;
-                        }, 1500); // Indicator stays for 1.5 seconds
+                        }, 1500);
                     }
                 },
 
