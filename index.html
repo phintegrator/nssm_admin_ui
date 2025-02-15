@@ -6,6 +6,12 @@
     <title>NSSM Service Manager</title>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Smooth fade animation for refresh indicator */
+        .fade {
+            transition: opacity 0.5s ease-in-out;
+        }
+    </style>
 </head>
 <body class="bg-gray-100 p-5">
 
@@ -37,10 +43,12 @@
             <span>seconds</span>
         </div>
 
-        <!-- 📌 Refresh Indicator -->
-        <div class="mb-4 flex items-center space-x-2" x-show="isRefreshing">
-            <div class="animate-spin h-5 w-5 border-t-2 border-blue-500 border-solid rounded-full"></div>
-            <span class="text-blue-500 font-semibold">Refreshing...</span>
+        <!-- 📌 Refresh Indicator (Placeholder for no flicker effect) -->
+        <div class="h-8 flex items-center justify-start mb-4">
+            <div class="fade flex items-center space-x-2" x-show="isRefreshing" x-transition.opacity>
+                <div class="animate-spin h-5 w-5 border-t-2 border-blue-500 border-solid rounded-full"></div>
+                <span class="text-blue-500 font-semibold">Refreshing Services...</span>
+            </div>
         </div>
 
         <!-- 📌 Service List -->
@@ -104,7 +112,10 @@
                     } catch (error) {
                         console.error("Error fetching services:", error);
                     } finally {
-                        this.isRefreshing = false; // Hide refresh indicator
+                        // Keep refresh indicator visible for a short duration
+                        setTimeout(() => {
+                            this.isRefreshing = false;
+                        }, 1500); // Indicator stays for 1.5 seconds
                     }
                 },
 
