@@ -53,13 +53,14 @@
             </div>
         </div>
 
-        <!-- 📌 Service List (Unchanged) -->
+        <!-- 📌 Service List -->
         <div class="overflow-x-auto">
             <table class="w-full border-collapse border border-gray-300 text-sm">
                 <thead>
                     <tr class="bg-gray-200 text-left">
                         <th class="border p-2">Service Name</th>
                         <th class="border p-2">Status</th>
+                        <th class="border p-2">Executable Path</th>
                         <th class="border p-2">Startup Directory</th>
                         <th class="border p-2">Arguments</th>
                         <th class="border p-2">Actions</th>
@@ -70,6 +71,7 @@
                         <tr class="border">
                             <td class="border p-2" x-text="service.service_name"></td>
                             <td class="border p-2" x-text="service.Status"></td>
+                            <td class="border p-2 truncate max-w-xs" x-text="service['Path']"></td>
                             <td class="border p-2 truncate max-w-xs" x-text="service['Startup Directory']"></td>
                             <td class="border p-2 truncate max-w-xs" x-text="service.Arguments"></td>
                             <td class="border p-2 space-x-2">
