@@ -17,10 +17,11 @@
 
     <div class="max-w-6xl mx-auto bg-white shadow-lg rounded-lg p-6 relative" x-data="nssmServiceManager()" x-init="fetchServices(); startAutoRefresh()">
         
-        <!-- 📌 Login / Logout Button (Upper Right) -->
+        <!-- 📌 Upper Right Buttons -->
         <div class="absolute top-3 right-3 text-sm text-gray-600 flex items-center space-x-3">
             <template x-if="isLoggedIn">
                 <div class="flex items-center space-x-3">
+                    <button class="text-xs bg-green-500 text-white px-3 py-1 rounded" @click="showInstallModal = true">Install New Service</button>
                     <span>Welcome, Admin</span>
                     <button class="text-xs bg-red-500 text-white px-2 py-1 rounded" @click="logout()">Logout</button>
                 </div>
@@ -34,7 +35,6 @@
 
         <!-- 📌 Refresh Indicator (Left) & Auto-Refresh Rate Selector (Right) -->
         <div class="flex justify-between items-center mb-4">
-            <!-- Refresh Indicator (Left) -->
             <div class="h-8 flex items-center">
                 <div class="fade flex items-center space-x-2" x-show="isRefreshing" x-transition.opacity>
                     <div class="animate-spin h-4 w-4 border-t-2 border-blue-500 border-solid rounded-full"></div>
@@ -42,7 +42,6 @@
                 </div>
             </div>
 
-            <!-- Auto-Refresh Rate Selector (Right) -->
             <div class="flex items-center space-x-2">
                 <span class="text-sm text-gray-700">Auto Refresh:</span>
                 <select class="border p-1 text-sm rounded" x-model="refreshRate" @change="startAutoRefresh()">
@@ -54,7 +53,7 @@
             </div>
         </div>
 
-        <!-- 📌 Service List -->
+        <!-- 📌 Service List (Unchanged) -->
         <div class="overflow-x-auto">
             <table class="w-full border-collapse border border-gray-300 text-sm">
                 <thead>
@@ -91,6 +90,21 @@
             </table>
         </div>
 
+        <!-- 📌 Install New Service Modal -->
+        <div x-show="showInstallModal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center" @click.away="showInstallModal = false">
+            <div class="bg-white p-6 rounded-lg shadow-lg modal-fade transform scale-95" x-transition.opacity x-transition.scale>
+                <h2 class="text-xl font-semibold mb-4">🛠 Install New Service</h2>
+                <input type="text" class="border p-2 rounded w-full mb-2" placeholder="Service Name" x-model="newService.service_name">
+                <input type="text" class="border p-2 rounded w-full mb-2" placeholder="Executable Path" x-model="newService.executable_path">
+                <input type="text" class="border p-2 rounded w-full mb-2" placeholder="Startup Directory" x-model="newService.startup_directory">
+                <input type="text" class="border p-2 rounded w-full mb-2" placeholder="Arguments (Optional)" x-model="newService.arguments">
+                <div class="flex justify-between">
+                    <button class="bg-green-500 text-white px-4 py-2 rounded" @click="installService()">Install</button>
+                    <button class="text-gray-500" @click="showInstallModal = false">Cancel</button>
+                </div>
+            </div>
+        </div>
+
         <!-- 📌 Login Modal -->
         <div x-show="showLoginModal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center" @click.away="showLoginModal = false">
             <div class="bg-white p-6 rounded-lg shadow-lg modal-fade transform scale-95" x-transition.opacity x-transition.scale>
@@ -113,12 +127,49 @@
             return {
                 services: [],
                 isLoggedIn: localStorage.getItem("loggedIn") === "true",
+                showInstallModal: false,
                 loginForm: { username: '', password: '' },
                 showLoginModal: false,
-                refreshRate: 5, // Default refresh rate in seconds
+                refreshRate: 5,
                 refreshInterval: null,
-                isRefreshing: false,
-                message: '',
+                newService: { service_name: '', executable_path: '', startup_directory: '', arguments: '' },
+
+                async startService(serviceName) {
+                    if (!this.isLoggedIn) return;
+                    let response = await fetch(`http://127.0.0.1:54321/services/${serviceName}/start`, { method: 'POST' });
+                    let data = await response.json();
+                    this.message = data.message || "Error starting service.";
+                    this.fetchServices();
+                },
+
+                async stopService(serviceName) {
+                    if (!this.isLoggedIn) return;
+                    let response = await fetch(`http://127.0.0.1:54321/services/${serviceName}/stop`, { method: 'POST' });
+                    let data = await response.json();
+                    this.message = data.message || "Error stopping service.";
+                    this.fetchServices();
+                },
+
+                async removeService(serviceName) {
+                    if (!this.isLoggedIn) return;
+                    let response = await fetch(`http://127.0.0.1:54321/services/${serviceName}`, { method: 'DELETE' });
+                    let data = await response.json();
+                    this.message = data.message || "Error removing service.";
+                    this.fetchServices();
+                },
+
+                async installService() {
+                    if (!this.isLoggedIn) return;
+                    let response = await fetch("http://127.0.0.1:54321/services", {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.newService)
+                    });
+                    let data = await response.json();
+                    alert(data.message || "Error installing service.");
+                    this.showInstallModal = false;
+                    this.fetchServices();
+                },
 
                 async fetchServices() {
                     try {
