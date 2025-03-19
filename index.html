@@ -33,7 +33,7 @@
 
         <h1 class="text-2xl font-bold mb-4">🚀 NSSM Service Manager</h1>
 
-        <!-- 📌 Refresh Indicator (Left) & Auto-Refresh Rate Selector (Right) -->
+        <!-- 📌 Refresh Indicator (Left) & Server/Auto-Refresh Controls (Right) -->
         <div class="flex justify-between items-center mb-4">
             <div class="h-8 flex items-center">
                 <div class="fade flex items-center space-x-2" x-show="isRefreshing" x-transition.opacity>
@@ -42,14 +42,24 @@
                 </div>
             </div>
 
-            <div class="flex items-center space-x-2">
-                <span class="text-sm text-gray-700">Auto Refresh:</span>
-                <select class="border p-1 text-sm rounded" x-model="refreshRate" @change="startAutoRefresh()">
-                    <option value="5">5s</option>
-                    <option value="10">10s</option>
-                    <option value="30">30s</option>
-                    <option value="60">60s</option>
-                </select>
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm text-gray-700">Server:</span>
+                    <select class="border p-1 text-sm rounded" x-model="selectedServer" @change="fetchServices()">
+                        <option value="http://127.0.0.1:54321">Localhost (54321)</option>
+                        <option value="http://192.168.32.29:54321">192.168.32.29</option>
+                        <!-- Add more server options as needed -->
+                    </select>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm text-gray-700">Auto Refresh:</span>
+                    <select class="border p-1 text-sm rounded" x-model="refreshRate" @change="startAutoRefresh()">
+                        <option value="5">5s</option>
+                        <option value="10">10s</option>
+                        <option value="30">30s</option>
+                        <option value="60">60s</option>
+                    </select>
+                </div>
             </div>
         </div>
 
@@ -134,11 +144,14 @@
                 showLoginModal: false,
                 refreshRate: 5,
                 refreshInterval: null,
+                selectedServer: "http://127.0.0.1:54321",
                 newService: { service_name: '', executable_path: '', startup_directory: '', arguments: '' },
+                message: '',
+                isRefreshing: false,
 
                 async startService(serviceName) {
                     if (!this.isLoggedIn) return;
-                    let response = await fetch(`http://127.0.0.1:54321/services/${serviceName}/start`, { method: 'POST' });
+                    let response = await fetch(`${this.selectedServer}/services/${serviceName}/start`, { method: 'POST' });
                     let data = await response.json();
                     this.message = data.message || "Error starting service.";
                     this.fetchServices();
@@ -146,7 +159,7 @@
 
                 async stopService(serviceName) {
                     if (!this.isLoggedIn) return;
-                    let response = await fetch(`http://127.0.0.1:54321/services/${serviceName}/stop`, { method: 'POST' });
+                    let response = await fetch(`${this.selectedServer}/services/${serviceName}/stop`, { method: 'POST' });
                     let data = await response.json();
                     this.message = data.message || "Error stopping service.";
                     this.fetchServices();
@@ -154,7 +167,7 @@
 
                 async removeService(serviceName) {
                     if (!this.isLoggedIn) return;
-                    let response = await fetch(`http://127.0.0.1:54321/services/${serviceName}`, { method: 'DELETE' });
+                    let response = await fetch(`${this.selectedServer}/services/${serviceName}`, { method: 'DELETE' });
                     let data = await response.json();
                     this.message = data.message || "Error removing service.";
                     this.fetchServices();
@@ -162,7 +175,7 @@
 
                 async installService() {
                     if (!this.isLoggedIn) return;
-                    let response = await fetch("http://127.0.0.1:54321/services", {
+                    let response = await fetch(`${this.selectedServer}/services`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(this.newService)
@@ -176,11 +189,12 @@
                 async fetchServices() {
                     try {
                         this.isRefreshing = true;
-                        let response = await fetch("http://127.0.0.1:54321/services");
+                        let response = await fetch(`${this.selectedServer}/services`);
                         let data = await response.json();
                         this.services = data.services;
                     } catch (error) {
                         console.error("Error fetching services:", error);
+                        this.message = "Error connecting to server";
                     } finally {
                         setTimeout(() => {
                             this.isRefreshing = false;
