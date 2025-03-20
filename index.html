@@ -7,53 +7,70 @@
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Smooth fade animation for modal */
         .modal-fade {
             transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
         }
+        .table-container {
+            max-height: 500px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+        table {
+            min-width: 100%;
+        }
+        th {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: #e5e7eb;
+        }
+        td, th {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
     </style>
 </head>
-<body class="bg-gray-100 p-5">
+<body class="bg-gray-100 min-h-screen p-6">
 
-    <div class="max-w-6xl mx-auto bg-white shadow-lg rounded-lg p-6 relative" x-data="nssmServiceManager()" x-init="fetchServices(); startAutoRefresh()">
+    <div class="max-w-7xl mx-auto bg-white shadow-xl rounded-xl p-6" x-data="nssmServiceManager()" x-init="fetchServices(); startAutoRefresh()">
         
-        <!-- 📌 Upper Right Buttons -->
-        <div class="absolute top-3 right-3 text-sm text-gray-600 flex items-center space-x-3">
-            <template x-if="isLoggedIn">
-                <div class="flex items-center space-x-3">
-                    <button class="text-xs bg-green-500 text-white px-3 py-1 rounded" @click="showInstallModal = true">Install New Service</button>
-                    <span>Welcome, Admin</span>
-                    <button class="text-xs bg-red-500 text-white px-2 py-1 rounded" @click="logout()">Logout</button>
-                </div>
-            </template>
-            <template x-if="!isLoggedIn">
-                <button class="text-xs bg-blue-500 text-white px-3 py-1 rounded" @click="showLoginModal = true">Login</button>
-            </template>
+        <!-- Header Section -->
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">🚀 NSSM Service Manager</h1>
+            <div class="flex items-center space-x-3">
+                <template x-if="isLoggedIn">
+                    <div class="flex items-center space-x-3">
+                        <button class="text-sm bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition" @click="showInstallModal = true">Install New Service</button>
+                        <span class="text-sm text-gray-600">Welcome, Admin</span>
+                        <button class="text-sm bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition" @click="logout()">Logout</button>
+                    </div>
+                </template>
+                <template x-if="!isLoggedIn">
+                    <button class="text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition" @click="showLoginModal = true">Login</button>
+                </template>
+            </div>
         </div>
 
-        <h1 class="text-2xl font-bold mb-4">🚀 NSSM Service Manager</h1>
-
-        <!-- 📌 Refresh Indicator (Left) & Server/Auto-Refresh Controls (Right) -->
-        <div class="flex justify-between items-center mb-4">
-            <div class="h-8 flex items-center">
-                <div class="fade flex items-center space-x-2" x-show="isRefreshing" x-transition.opacity>
-                    <div class="animate-spin h-4 w-4 border-t-2 border-blue-500 border-solid rounded-full"></div>
-                    <span class="text-blue-500 text-sm font-semibold">Refreshing...</span>
+        <!-- Controls Section -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2" x-show="isRefreshing" x-transition.opacity>
+                    <div class="animate-spin h-5 w-5 border-t-2 border-blue-500 border-solid rounded-full"></div>
+                    <span class="text-blue-500 text-sm font-medium">Refreshing...</span>
                 </div>
             </div>
-
-            <div class="flex items-center space-x-4">
+            <div class="flex flex-col sm:flex-row gap-4">
                 <div class="flex items-center space-x-2">
-                    <span class="text-sm text-gray-700">Server:</span>
-                    <select class="border p-1 text-sm rounded" x-model="selectedServer" @change="fetchServices()">
+                    <span class="text-sm text-gray-700 font-medium">Server:</span>
+                    <select class="border border-gray-300 p-2 text-sm rounded-lg focus:ring-2 focus:ring-blue-500" x-model="selectedServer" @change="fetchServices()">
                         <option value="http://127.0.0.1:54321">Localhost (54321)</option>
                         <option value="http://192.168.32.29:54321">192.168.32.29</option>
-                        <!-- Add more server options as needed -->
                     </select>
                 </div>
                 <div class="flex items-center space-x-2">
-                    <span class="text-sm text-gray-700">Auto Refresh:</span>
-                    <select class="border p-1 text-sm rounded" x-model="refreshRate" @change="startAutoRefresh()">
+                    <span class="text-sm text-gray-700 font-medium">Auto Refresh:</span>
+                    <select class="border border-gray-300 p-2 text-sm rounded-lg focus:ring-2 focus:ring-blue-500" x-model="refreshRate" @change="startAutoRefresh()">
                         <option value="5">5s</option>
                         <option value="10">10s</option>
                         <option value="30">30s</option>
@@ -63,37 +80,37 @@
             </div>
         </div>
 
-        <!-- 📌 Service List -->
-        <div class="overflow-x-auto">
-            <table class="w-full border-collapse border border-gray-300 text-sm">
+        <!-- Table Section -->
+        <div class="table-container">
+            <table class="w-full border-collapse border border-gray-200 text-sm">
                 <thead>
-                    <tr class="bg-gray-200 text-left">
-                        <th class="border p-2">Service Name</th>
-                        <th class="border p-2">Status</th>
-                        <th class="border p-2">Executable Path</th>
-                        <th class="border p-2">Startup Directory</th>
-                        <th class="border p-2">Arguments</th>
-                        <th class="border p-2">Actions</th>
+                    <tr class="bg-gray-200 text-left text-gray-700">
+                        <th class="border p-3 w-1/6">Service Name</th>
+                        <th class="border p-3 w-1/12">Status</th>
+                        <th class="border p-3 w-1/4">Executable Path</th>
+                        <th class="border p-3 w-1/4">Startup Directory</th>
+                        <th class="border p-3 w-1/6">Arguments</th>
+                        <th class="border p-3 w-1/6">Actions</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody class="bg-white">
                     <template x-for="service in services" :key="service.service_name">
-                        <tr class="border">
-                            <td class="border p-2" x-text="service.service_name"></td>
-                            <td class="border p-2" x-text="service.Status"></td>
-                            <td class="border p-2 truncate max-w-xs" x-text="service['Path']"></td>
-                            <td class="border p-2 truncate max-w-xs" x-text="service['Startup Directory']"></td>
-                            <td class="border p-2 truncate max-w-xs" x-text="service.Arguments"></td>
-                            <td class="border p-2 space-x-2">
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="border p-3" x-text="service.service_name"></td>
+                            <td class="border p-3" x-text="service.Status"></td>
+                            <td class="border p-3" x-text="service['Path']"></td>
+                            <td class="border p-3" x-text="service['Startup Directory']"></td>
+                            <td class="border p-3" x-text="service.Arguments"></td>
+                            <td class="border p-3">
                                 <template x-if="isLoggedIn">
-                                    <div>
-                                        <button class="bg-green-500 text-white px-3 py-1 rounded" @click="startService(service.service_name)">Start</button>
-                                        <button class="bg-yellow-500 text-white px-3 py-1 rounded" @click="stopService(service.service_name)">Stop</button>
-                                        <button class="bg-red-500 text-white px-3 py-1 rounded" @click="removeService(service.service_name)">Remove</button>
+                                    <div class="flex space-x-2">
+                                        <button class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs transition" @click="startService(service.service_name)">Start</button>
+                                        <button class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-xs transition" @click="stopService(service.service_name)">Stop</button>
+                                        <button class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs transition" @click="removeService(service.service_name)">Remove</button>
                                     </div>
                                 </template>
                                 <template x-if="!isLoggedIn">
-                                    <span class="text-gray-500 italic">Login required</span>
+                                    <span class="text-gray-500 italic text-xs">Login required</span>
                                 </template>
                             </td>
                         </tr>
@@ -102,36 +119,38 @@
             </table>
         </div>
 
-        <!-- 📌 Install New Service Modal -->
+        <!-- Install Modal -->
         <div x-show="showInstallModal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center" @click.away="showInstallModal = false">
-            <div class="bg-white p-6 rounded-lg shadow-lg modal-fade transform scale-95" x-transition.opacity x-transition.scale>
-                <h2 class="text-xl font-semibold mb-4">🛠 Install New Service</h2>
-                <input type="text" class="border p-2 rounded w-full mb-2" placeholder="Service Name" x-model="newService.service_name">
-                <input type="text" class="border p-2 rounded w-full mb-2" placeholder="Executable Path" x-model="newService.executable_path">
-                <input type="text" class="border p-2 rounded w-full mb-2" placeholder="Startup Directory" x-model="newService.startup_directory">
-                <input type="text" class="border p-2 rounded w-full mb-2" placeholder="Arguments (Optional)" x-model="newService.arguments">
-                <div class="flex justify-between">
-                    <button class="bg-green-500 text-white px-4 py-2 rounded" @click="installService()">Install</button>
-                    <button class="text-gray-500" @click="showInstallModal = false">Cancel</button>
+            <div class="bg-white p-6 rounded-xl shadow-2xl modal-fade transform scale-95 w-full max-w-md" x-transition.opacity x-transition.scale>
+                <h2 class="text-xl font-semibold mb-4 text-gray-800">🛠 Install New Service</h2>
+                <input type="text" class="border p-2 rounded w-full mb-3 focus:ring-2 focus:ring-blue-500" placeholder="Service Name" x-model="newService.service_name">
+                <input type="text" class="border p-2 rounded w-full mb-3 focus:ring-2 focus:ring-blue-500" placeholder="Executable Path" x-model="newService.executable_path">
+                <input type="text" class="border p-2 rounded w-full mb-3 focus:ring-2 focus:ring-blue-500" placeholder="Startup Directory" x-model="newService.startup_directory">
+                <input type="text" class="border p-2 rounded w-full mb-3 focus:ring-2 focus:ring-blue-500" placeholder="Arguments (Optional)" x-model="newService.arguments">
+                <div class="flex justify-end space-x-3">
+                    <button class="text-gray-600 hover:text-gray-800" @click="showInstallModal = false">Cancel</button>
+                    <button class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition" @click="installService()">Install</button>
                 </div>
             </div>
         </div>
 
-        <!-- 📌 Login Modal -->
+        <!-- Login Modal -->
         <div x-show="showLoginModal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center" @click.away="showLoginModal = false">
-            <div class="bg-white p-6 rounded-lg shadow-lg modal-fade transform scale-95" x-transition.opacity x-transition.scale>
-                <h2 class="text-xl font-semibold mb-4">🔐 Login</h2>
-                <input type="text" class="border p-2 rounded w-full mb-2" placeholder="Username" x-model="loginForm.username">
-                <input type="password" class="border p-2 rounded w-full mb-2" placeholder="Password" x-model="loginForm.password">
-                <div class="flex justify-between">
-                    <button class="bg-blue-500 text-white px-4 py-2 rounded" @click="login()">Login</button>
-                    <button class="text-gray-500" @click="showLoginModal = false">Cancel</button>
+            <div class="bg-white p-6 rounded-xl shadow-2xl modal-fade transform scale-95 w-full max-w-md" x-transition.opacity x-transition.scale>
+                <h2 class="text-xl font-semibold mb-4 text-gray-800">🔐 Login</h2>
+                <input type="text" class="border p-2 rounded w-full mb-3 focus:ring-2 focus:ring-blue-500" placeholder="Username" x-model="loginForm.username">
+                <input type="password" class="border p-2 rounded w-full mb-3 focus:ring-2 focus:ring-blue-500" placeholder="Password" x-model="loginForm.password">
+                <div class="flex justify-end space-x-3">
+                    <button class="text-gray-600 hover:text-gray-800" @click="showLoginModal = false">Cancel</button>
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition" @click="login()">Login</button>
                 </div>
             </div>
         </div>
 
-        <!-- 📌 Notifications -->
-        <p x-show="message" class="mt-4 p-3 bg-green-100 text-green-700 rounded" x-text="message"></p>
+        <!-- Notification -->
+        <div class="mt-6" x-show="message">
+            <p class="p-3 bg-green-100 text-green-700 rounded-lg" x-text="message"></p>
+        </div>
     </div>
 
     <script>
