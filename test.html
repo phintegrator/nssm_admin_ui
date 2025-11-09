@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NSSM Service Manager - Card View</title>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen p-8 font-sans">
+    <div class="max-w-7xl mx-auto bg-white shadow-2xl rounded-2xl p-8" x-data="nssmServiceManager()" x-init="fetchServers().then(fetchAllServices); startAutoRefresh()">
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+            <h1 class="text-3xl font-extrabold text-gray-900 flex items-center">
+                <span class="mr-2">🚀</span> NSSM Service Manager
+            </h1>
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2 bg-gray-100 rounded-lg p-2">
+                    <label class="text-sm text-gray-600 font-medium">Refresh:</label>
+                    <input type="number" min="1" class="w-16 border-0 bg-transparent focus:ring-0 text-sm" x-model="refreshRate" @change="startAutoRefresh()">
+                    <span class="text-sm text-gray-500">s</span>
+                </div>
+                <template x-if="isLoggedIn">
+                    <div class="flex items-center space-x-4">
+                        <button class="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-4 py-2 rounded-lg transition-all duration-200 shadow-md" @click="showInstallModal = true">
+                            <span class="flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                New Service
+                            </span>
+                        </button>
+                        <span class="text-sm text-gray-600 font-medium bg-gray-100 px-3 py-1 rounded-full">Admin</span>
+                        <button class="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-2 rounded-lg transition-all duration-200 shadow-md" @click="logout()">Logout</button>
+                    </div>
+                </template>
+                <template x-if="!isLoggedIn">
+                    <button class="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-lg transition-all duration-200 shadow-md" @click="showLoginModal = true">Login</button>
+                </template>
+            </div>
+        </div>
+
+        <!-- Login Modal -->
+        <div x-show="showLoginModal" class="fixed inset-0 bg-black/60 flex justify-center items-center z-50" @click.away="showLoginModal = false" x-transition.opacity>
+            <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md fade-in">
+                <h2 class="text-2xl font-bold mb-6 text-gray-800 flex items-center">
+                    <span class="mr-2">🔐</span> Login
+                </h2>
+                <div class="space-y-4">
+                    <input type="text" class="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="Username" x-model="loginForm.username">
+                    <input type="password" class="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="Password" x-model="loginForm.password">
+                    <div class="flex justify-end space-x-3">
+                        <button class="text-gray-600 hover:text-gray-800 px-4 py-2 transition-all" @click="showLoginModal = false">Cancel</button>
+                        <button class="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-2 rounded-lg transition-all duration-200 shadow-md" @click="login()">Login</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Install Service Modal -->
+        <div x-show="showInstallModal" class="fixed inset-0 bg-black/60 flex justify-center items-center z-50" @click.away="showInstallModal = false" x-transition.opacity>
+            <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md fade-in max-h-[90vh] overflow-y-auto">
+                <h2 class="text-2xl font-bold mb-6 text-gray-800 flex items-center">
+                    <span class="mr-2">📦</span> Install New Service
+                </h2>
+                <div class="space-y-4">
+                    <select class="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all" x-model="newService.server_ip">
+                        <option value="">Select Server</option>
+                        <template x-for="server in servers" :key="server.ip">
+                            <option :value="server.ip" x-text="server.name + ' (' + server.ip + ')'"></option>
+                        </template>
+                    </select>
+                    <input type="text" class="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all" placeholder="Service Name" x-model="newService.service_name">
+                    <input type="text" class="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all" placeholder="Executable Path" x-model="newService.executable_path">
+                    <input type="text" class="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all" placeholder="Startup Directory" x-model="newService.startup_directory">
+                    <input type="text" class="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all" placeholder="Arguments" x-model="newService.arguments">
+                    <div class="flex justify-end space-x-3">
+                        <button class="text-gray-600 hover:text-gray-800 px-4 py-2 transition-all" @click="showInstallModal = false">Cancel</button>
+                        <button class="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-2 rounded-lg transition-all duration-200 shadow-md" @click="installService()" x-bind:disabled="installing">
+                            <span x-show="!installing">Install</span>
+                            <span x-show="installing" class="flex items-center">Installing <div class="animate-spin h-4 w-4 border-t-2 border-white rounded-full ml-2"></div></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Server Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <template x-for="server in servers" :key="server.ip">
+                <div class="rounded-2xl shadow-lg p-6 transition-all duration-200 hover:shadow-xl hover:-translate-y-1 cursor-pointer relative overflow-hidden"
+                    :class="servicesByServer[server.ip] === undefined ? 'bg-gray-100 border border-gray-300' : getServerHealth(server.ip) ? 'bg-green-50 border-2 border-green-200' : 'bg-red-50 border-2 border-red-200'"
+                    @click="showServerDetails(server.ip)">
+                    <div class="absolute top-4 right-4" x-show="refreshingServers.includes(server.ip)">
+                        <div class="animate-spin h-6 w-6 border-t-2 border-blue-500 border-solid rounded-full"></div>
+                    </div>
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800 truncate" x-text="server.name + ' (' + server.ip + ')'"></h2>
+                    <ul class="space-y-3 text-sm max-h-48 overflow-y-auto pr-2">
+                        <template x-if="servicesByServer[server.ip] === undefined">
+                            <li class="text-gray-500 italic bg-gray-200 rounded-lg p-2">Connection Error</li>
+                        </template>
+                        <template x-if="servicesByServer[server.ip] !== undefined">
+                            <template x-for="service in servicesByServer[server.ip] || []" :key="service.service_name">
+                                <li class="flex justify-between items-center bg-white rounded-lg p-2 shadow-sm">
+                                    <span class="truncate flex-1" x-text="service.service_name"></span>
+                                    <span class="ml-2 px-2 py-1 rounded-full text-xs font-medium" 
+                                        :class="service.Status === 'SERVICE_RUNNING' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" 
+                                        x-text="service.Status"></span>
+                                </li>
+                            </template>
+                        </template>
+                    </ul>
+                </div>
+            </template>
+        </div>
+
+        <!-- Service Details Modal -->
+        <div x-show="showDetailsModal" class="fixed inset-0 bg-black/60 flex justify-center items-center z-50" @click.away="showDetailsModal = false" x-transition.opacity>
+            <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-2xl fade-in max-h-[90vh] overflow-y-auto">
+                <h2 class="text-2xl font-bold mb-6 text-gray-800 flex items-center">
+                    <span class="mr-2">🔧</span> Manage Services
+                </h2>
+                <template x-if="servicesByServer[selectedServerIP]">
+                    <ul class="space-y-4 text-sm">
+                        <template x-for="service in servicesByServer[selectedServerIP] || []" :key="service.service_name">
+                            <li class="flex justify-between items-center bg-gray-50 rounded-lg p-4 shadow-sm">
+                                <div class="flex-1">
+                                    <div class="font-semibold text-gray-800" x-text="service.service_name"></div>
+                                    <div class="text-xs text-gray-600" x-text="'Status: ' + service.Status"></div>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <template x-if="isLoggedIn">
+                                        <div class="flex space-x-2">
+                                            <button class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg text-xs transition-all shadow-sm" 
+                                                @click.stop="startService(service.service_name)" 
+                                                x-bind:disabled="serviceLoading[service.service_name]">Start</button>
+                                            <button class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-lg text-xs transition-all shadow-sm" 
+                                                @click.stop="stopService(service.service_name)" 
+                                                x-bind:disabled="serviceLoading[service.service_name]">Stop</button>
+                                            <button class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-xs transition-all shadow-sm" 
+                                                @click.stop="removeService(service.service_name)" 
+                                                x-bind:disabled="serviceLoading[service.service_name]">Remove</button>
+                                        </div>
+                                    </template>
+                                    <template x-if="!isLoggedIn">
+                                        <span class="text-gray-500 text-xs bg-gray-200 px-3 py-1 rounded-full">Login required</span>
+                                    </template>
+                                </div>
+                            </li>
+                        </template>
+                    </ul>
+                </template>
+                <div class="mt-6 text-right">
+                    <button class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg transition-all duration-200 shadow-md" @click="showDetailsModal = false">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification -->
+        <div class="mt-8" x-show="message" x-transition.opacity>
+            <p class="p-4 bg-green-100 text-green-800 rounded-xl shadow-md fade-in" x-text="message"></p>
+        </div>
+    </div>
+
+    <script>
+        function nssmServiceManager() {
+            return {
+                servicesByServer: {},
+                servers: [],
+                selectedServer: '',
+                selectedServerIP: '',
+                isLoggedIn: localStorage.getItem("loggedIn") === "true",
+                showInstallModal: false,
+                showLoginModal: false,
+                loginForm: { username: '', password: '' },
+                showDetailsModal: false,
+                newService: { server_ip: '', service_name: '', executable_path: '', startup_directory: '', arguments: '' },
+                refreshRate: 5,
+                refreshInterval: null,
+                message: '',
+                refreshingServers: [],
+                installing: false,
+                serviceLoading: {},
+
+                async login() {
+                    try {
+                        if (this.loginForm.username === 'admin' && this.loginForm.password === 'admin') {
+                            this.isLoggedIn = true;
+                            localStorage.setItem('loggedIn', 'true');
+                            this.showLoginModal = false;
+                            this.message = 'Login successful!';
+                        } else {
+                            this.message = 'Invalid credentials.';
+                        }
+                    } catch (error) {
+                        this.message = 'Login error occurred.';
+                    }
+                },
+
+                logout() {
+                    this.isLoggedIn = false;
+                    localStorage.removeItem('loggedIn');
+                    this.message = 'Logged out successfully.';
+                },
+
+                async fetchServers() {
+                    try {
+                        let response = await fetch('http://192.168.32.29:30/nssm/sqlite-api/', { timeout: 5000 });
+                        if (!response.ok) throw new Error('Server list fetch failed');
+                        let data = await response.json();
+                        this.servers = data;
+                    } catch (error) {
+                        console.error("Error fetching servers:", error);
+                        this.message = "Error fetching server list";
+                    }
+                },
+
+                async fetchAllServices() {
+                    for (let server of this.servers) {
+                        this.refreshingServers.push(server.ip);
+                        try {
+                            let url = `http://${server.ip}:54321/services`;
+                            let response = await fetch(url, { timeout: 5000 });
+                            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                            let data = await response.json();
+                            this.servicesByServer[server.ip] = data.services || [];
+                        } catch (error) {
+                            console.error(`Error fetching services for ${server.ip}:`, error);
+                            this.servicesByServer[server.ip] = undefined;
+                        } finally {
+                            this.refreshingServers = this.refreshingServers.filter(ip => ip !== server.ip);
+                        }
+                    }
+                },
+
+                async fetchServices() {
+                    let ip = this.selectedServer.split('/')[2].split(':')[0];
+                    if (!ip) return;
+                    this.refreshingServers.push(ip);
+                    try {
+                        let response = await fetch(`${this.selectedServer}/services`, { timeout: 5000 });
+                        if (!response.ok) throw new Error('Service fetch failed');
+                        let data = await response.json();
+                        this.servicesByServer[ip] = data.services;
+                    } catch (error) {
+                        this.servicesByServer[ip] = undefined;
+                        this.message = `Failed to fetch services for ${ip}`;
+                    } finally {
+                        this.refreshingServers = this.refreshingServers.filter(s => s !== ip);
+                    }
+                },
+
+                getServerHealth(ip) {
+                    let services = this.servicesByServer[ip] || [];
+                    return services.every(s => s.Status === 'SERVICE_RUNNING');
+                },
+
+                startAutoRefresh() {
+                    if (this.refreshInterval) clearInterval(this.refreshInterval);
+                    this.refreshInterval = setInterval(() => {
+                        this.fetchAllServices();
+                    }, this.refreshRate * 1000);
+                },
+
+                showServerDetails(ip) {
+                    this.selectedServer = `http://${ip}:54321`;
+                    this.selectedServerIP = ip;
+                    this.showDetailsModal = true;
+                },
+
+                async startService(serviceName) {
+                    if (!this.isLoggedIn) {
+                        this.message = 'Please login to perform this action';
+                        return;
+                    }
+                    this.serviceLoading[serviceName] = true;
+                    try {
+                        let response = await fetch(`${this.selectedServer}/services/${serviceName}/start`, { 
+                            method: 'POST',
+                            timeout: 5000 
+                        });
+                        let data = await response.json();
+                        this.message = data.message || 'Service started';
+                        await this.fetchServices();
+                    } catch (error) {
+                        this.message = 'Error starting service';
+                    } finally {
+                        this.serviceLoading[serviceName] = false;
+                    }
+                },
+
+                async stopService(serviceName) {
+                    if (!this.isLoggedIn) {
+                        this.message = 'Please login to perform this action';
+                        return;
+                    }
+                    this.serviceLoading[serviceName] = true;
+                    try {
+                        let response = await fetch(`${this.selectedServer}/services/${serviceName}/stop`, { 
+                            method: 'POST',
+                            timeout: 5000 
+                        });
+                        let data = await response.json();
+                        this.message = data.message || 'Service stopped';
+                        await this.fetchServices();
+                    } catch (error) {
+                        this.message = 'Error stopping service';
+                    } finally {
+                        this.serviceLoading[serviceName] = false;
+                    }
+                },
+
+                async removeService(serviceName) {
+                    if (!this.isLoggedIn) {
+                        this.message = 'Please login to perform this action';
+                        return;
+                    }
+                    if (!confirm('Are you sure you want to remove this service?')) return;
+                    this.serviceLoading[serviceName] = true;
+                    try {
+                        let response = await fetch(`${this.selectedServer}/services/${serviceName}`, { 
+                            method: 'DELETE',
+                            timeout: 5000 
+                        });
+                        let data = await response.json();
+                        this.message = data.message || 'Service removed';
+                        await this.fetchServices();
+                    } catch (error) {
+                        this.message = 'Error removing service';
+                    } finally {
+                        this.serviceLoading[serviceName] = false;
+                    }
+                },
+
+                async installService() {
+                    if (!this.isLoggedIn) {
+                        this.message = 'Please login to perform this action';
+                        return;
+                    }
+                    if (!this.newService.server_ip || !this.newService.service_name || !this.newService.executable_path) {
+                        this.message = 'Please fill in all required fields (Server, Service Name, Executable Path)';
+                        return;
+                    }
+                    this.installing = true;
+                    try {
+                        const targetServer = `http://${this.newService.server_ip}:54321`;
+                        const response = await fetch(`${targetServer}/services`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                service_name: this.newService.service_name,
+                                executable_path: this.newService.executable_path,
+                                startup_directory: this.newService.startup_directory,
+                                arguments: this.newService.arguments
+                            }),
+                            timeout: 5000
+                        });
+                        if (response.ok) {
+                            this.message = 'Service installed successfully';
+                            this.showInstallModal = false;
+                            this.newService = { server_ip: '', service_name: '', executable_path: '', startup_directory: '', arguments: '' };
+                            await this.fetchAllServices();
+                        } else {
+                            this.message = 'Failed to install service';
+                        }
+                    } catch (error) {
+                        this.message = 'Error installing service: ' + error.message;
+                    } finally {
+                        this.installing = false;
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,131 @@
+
+
+<!DOCTYPE html>
+<html lang="en" x-data="serverManager()" x-init="fetchServers()">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Server Manager</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <style>
+    .table-container {
+      max-height: 500px;
+      overflow-y: auto;
+      margin-top: 1rem;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      background: #f3f4f6;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 p-6 min-h-screen">
+
+  <div class="max-w-5xl mx-auto bg-white shadow-xl rounded-xl p-6">
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold text-gray-800">🗂 Server Manager</h1>
+      <button @click="openForm()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg transition">Add Server</button>
+    </div>
+
+    <!-- Server Table -->
+    <div class="table-container border rounded-xl shadow">
+      <table class="w-full border-collapse text-sm">
+        <thead class="text-left text-gray-700">
+          <tr>
+            <th class="border p-3">Name</th>
+            <th class="border p-3">IP</th>
+            <th class="border p-3">Description</th>
+            <th class="border p-3 text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white">
+          <template x-for="server in servers" :key="server.id">
+            <tr class="border-b hover:bg-gray-50">
+              <td class="p-3 border" x-text="server.name"></td>
+              <td class="p-3 border" x-text="server.ip"></td>
+              <td class="p-3 border" x-text="server.description"></td>
+              <td class="p-3 border text-center">
+                <button @click="editServer(server)" class="text-sm text-blue-600 hover:underline mr-2">Edit</button>
+                <button @click="deleteServer(server.id)" class="text-sm text-red-600 hover:underline">Delete</button>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" x-show="showForm" x-transition @click.away="closeForm()">
+    <div class="bg-white p-6 rounded-xl shadow-xl w-full max-w-md" x-transition.scale>
+      <h2 class="text-xl font-semibold mb-4 text-gray-800" x-text="form.id ? 'Edit Server' : 'Add Server'"></h2>
+
+      <input type="text" class="w-full border rounded-lg px-3 py-2 mb-3 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Server Name" x-model="form.name" />
+      <input type="text" class="w-full border rounded-lg px-3 py-2 mb-3 text-sm focus:ring-2 focus:ring-blue-500" placeholder="IP Address" x-model="form.ip" />
+      <input type="text" class="w-full border rounded-lg px-3 py-2 mb-4 text-sm focus:ring-2 focus:ring-blue-500" placeholder="Description" x-model="form.description" />
+
+      <div class="flex justify-end space-x-2">
+        <button @click="closeForm()" class="text-gray-600 hover:text-gray-800">Cancel</button>
+        <button @click="submitForm()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function serverManager() {
+      return {
+        servers: [],
+        showForm: false,
+        form: { id: null, name: '', ip: '', description: '' },
+        apiUrl: 'http://192.168.32.29:30/nssm/sqlite-api/index.php',
+
+        async fetchServers() {
+          try {
+            const res = await fetch(this.apiUrl);
+            this.servers = await res.json();
+          } catch (err) {
+            alert("Failed to fetch servers.");
+          }
+        },
+
+        openForm() {
+          this.form = { id: null, name: '', ip: '', description: '' };
+          this.showForm = true;
+        },
+
+        closeForm() {
+          this.showForm = false;
+        },
+
+        editServer(server) {
+          this.form = { ...server };
+          this.showForm = true;
+        },
+
+        async submitForm() {
+          const payload = JSON.stringify(this.form);
+          const method = this.form.id ? 'PUT' : 'POST';
+          const url = this.form.id ? `${this.apiUrl}?id=${this.form.id}` : this.apiUrl;
+
+          await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: payload
+          });
+
+          this.fetchServers();
+          this.closeForm();
+        },
+
+        async deleteServer(id) {
+          if (!confirm("Are you sure you want to delete this server?")) return;
+          await fetch(`${this.apiUrl}?id=${id}`, { method: 'DELETE' });
+          this.fetchServers();
+        }
+      }
+    }
+  </script>
+</body>
+</html>

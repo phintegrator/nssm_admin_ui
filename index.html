@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NSSM Service Manager</title>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .modal-fade {
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+        .table-container {
+            max-height: 500px;
+            overflow-y: auto;
+            margin-top: 1rem;
+        }
+        table {
+            min-width: 100%;
+        }
+        th {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: #e5e7eb;
+        }
+        td, th {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .modal-overlay {
+            z-index: 50;
+        }
+        .modal-content {
+            z-index: 60;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-6">
+
+    <div class="max-w-7xl mx-auto bg-white shadow-xl rounded-xl p-6" x-data="nssmServiceManager()" x-init="fetchServers().then(() => fetchServices()); startAutoRefresh()">
+        
+        <!-- Header Section -->
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">🚀 NSSM Service Manager</h1>
+            <div class="flex items-center space-x-3">
+                <template x-if="isLoggedIn">
+                    <div class="flex items-center space-x-3">
+                        <button class="text-sm bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition" @click="showInstallModal = true">Install New Service</button>
+                        <span class="text-sm text-gray-600">Welcome, Admin</span>
+                        <button class="text-sm bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition" @click="logout()">Logout</button>
+                    </div>
+                </template>
+                <template x-if="!isLoggedIn">
+                    <button class="text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition" @click="showLoginModal = true">Login</button>
+                </template>
+            </div>
+        </div>
+
+        <!-- Controls Section -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-2" x-show="isRefreshing" x-transition.opacity>
+                    <div class="animate-spin h-5 w-5 border-t-2 border-blue-500 border-solid rounded-full"></div>
+                    <span class="text-blue-500 text-sm font-medium">Refreshing...</span>
+                </div>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-4">
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm text-gray-700 font-medium">Server:</span>
+                    <select class="border border-gray-300 p-2 text-sm rounded-lg focus:ring-2 focus:ring-blue-500" x-model="selectedServer" @change="fetchServices()">
+                        <option value="http://192.168.32.29:54321">OEE SERVER</option>
+                        <template x-for="server in servers" :key="server.id">
+                            <option :value="'http://' + server.ip + ':54321'" x-text="server.name + ' (' + server.ip + ')'"></option>
+                        </template>
+                    </select>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm text-gray-700 font-medium">Auto Refresh:</span>
+                    <select class="border border-gray-300 p-2 text-sm rounded-lg focus:ring-2 focus:ring-blue-500" x-model="refreshRate" @change="startAutoRefresh()">
+                        <option value="5">5s</option>
+                        <option value="10">10s</option>
+                        <option value="30">30s</option>
+                        <option value="60">60s</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table Section -->
+        <div class="table-container">
+            <table class="w-full border-collapse border border-gray-200 text-sm">
+                <thead>
+                    <tr class="bg-gray-200 text-left text-gray-700">
+                        <th class="border p-3 w-2/6">Service Name</th>
+                        <th class="border p-3 w-1/6">Status</th>
+                        <th class="border p-3 w-2/6">Arguments</th>
+                        <th class="border p-3 w-1/6">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white">
+                    <template x-for="service in services" :key="service.service_name">
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="border p-3">
+                                <button class="text-blue-600 hover:underline" @click="showServiceDetails(service)" x-text="service.service_name"></button>
+                            </td>
+                            <td class="border p-3" 
+								x-text="service.Status" 
+								:class="service.Status === 'SERVICE_RUNNING' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'">
+							</td>
+
+                            <td class="border p-3" x-text="service.Arguments"></td>
+                            <td class="border p-3">
+                                <template x-if="isLoggedIn">
+                                    <div class="flex space-x-2">
+                                        <button class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs transition" @click="startService(service.service_name)">Start</button>
+                                        <button class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-xs transition" @click="stopService(service.service_name)">Stop</button>
+                                        <button class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs transition" @click="removeService(service.service_name)">Remove</button>
+                                    </div>
+                                </template>
+                                <template x-if="!isLoggedIn">
+                                    <span class="text-gray-500 italic text-xs">Login required</span>
+                                </template>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Service Details Modal -->
+        <div x-show="showDetailsModal"
+            class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center modal-overlay"
+            @click.away="showDetailsModal = false">
+            <div class="bg-white p-6 rounded-xl shadow-2xl modal-fade transform scale-95 w-full max-w-md modal-content"
+                x-transition.opacity x-transition.scale>
+                <h2 class="text-xl font-semibold mb-4 text-gray-800">📋 Service Details</h2>
+                <div class="space-y-3">
+                    <div>
+                        <span class="font-medium text-gray-700">Service Name:</span>
+                        <p x-text="selectedService?.service_name" class="text-gray-600"></p>
+                    </div>
+                    <div>
+                        <span class="font-medium text-gray-700">Status:</span>
+                        <p x-text="selectedService?.Status" class="text-gray-600"></p>
+                    </div>
+                    <div>
+                        <span class="font-medium text-gray-700">Executable Path:</span>
+                        <p x-text="selectedService?.['Path']" class="text-gray-600 break-all"></p>
+                    </div>
+                    <div>
+                        <span class="font-medium text-gray-700">Startup Directory:</span>
+                        <p x-text="selectedService?.['Startup Directory']" class="text-gray-600 break-all"></p>
+                    </div>
+                    <div>
+                        <span class="font-medium text-gray-700">Arguments:</span>
+                        <p x-text="selectedService?.Arguments || 'None'" class="text-gray-600"></p>
+                    </div>
+                </div>
+                <div class="flex justify-end mt-4">
+                    <button class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition"
+                        @click="showDetailsModal = false">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Install Modal -->
+        <div x-show="showInstallModal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center" @click.away="showInstallModal = false">
+            <div class="bg-white p-6 rounded-xl shadow-2xl modal-fade transform scale-95 w-full max-w-md" x-transition.opacity x-transition.scale>
+                <h2 class="text-xl font-semibold mb-4 text-gray-800">🛠 Install New Service</h2>
+                <input type="text" class="border p-2 rounded w-full mb-3 focus:ring-2 focus:ring-blue-500" placeholder="Service Name" x-model="newService.service_name">
+                <input type="text" class="border p-2 rounded w-full mb-3 focus:ring-2 focus:ring-blue-500" placeholder="Executable Path" x-model="newService.executable_path">
+                <input type="text" class="border p-2 rounded w-full mb-3 focus:ring-2 focus:ring-blue-500" placeholder="Startup Directory" x-model="newService.startup_directory">
+                <input type="text" class="border p-2 rounded w-full mb-3 focus:ring-2 focus:ring-blue-500" placeholder="Arguments (Optional)" x-model="newService.arguments">
+                <div class="flex justify-end space-x-3">
+                    <button class="text-gray-600 hover:text-gray-800" @click="showInstallModal = false">Cancel</button>
+                    <button class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition" @click="installService()">Install</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Login Modal -->
+        <div x-show="showLoginModal" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center" @click.away="showLoginModal = false">
+            <div class="bg-white p-6 rounded-xl shadow-2xl modal-fade transform scale-95 w-full max-w-md" x-transition.opacity x-transition.scale>
+                <h2 class="text-xl font-semibold mb-4 text-gray-800">🔐 Login</h2>
+                <input type="text" class="border p-2 rounded w-full mb-3 focus:ring-2 focus:ring-blue-500" placeholder="Username" x-model="loginForm.username">
+                <input type="password" class="border p-2 rounded w-full mb-3 focus:ring-2 focus:ring-blue-500" placeholder="Password" x-model="loginForm.password">
+                <div class="flex justify-end space-x-3">
+                    <button class="text-gray-600 hover:text-gray-800" @click="showLoginModal = false">Cancel</button>
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition" @click="login()">Login</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification -->
+        <div class="mt-6" x-show="message">
+            <p class="p-3 bg-green-100 text-green-700 rounded-lg" x-text="message"></p>
+        </div>
+    </div>
+
+    <script>
+        function nssmServiceManager() {
+            return {
+                services: [],
+                servers: [],
+                isLoggedIn: localStorage.getItem("loggedIn") === "true",
+                showInstallModal: false,
+                loginForm: { username: '', password: '' },
+                showLoginModal: false,
+                refreshRate: 5,
+                refreshInterval: null,
+                selectedServer: "http://192.168.32.29:54321",
+                newService: { service_name: '', executable_path: '', startup_directory: '', arguments: '' },
+                message: '',
+                isRefreshing: false,
+                showDetailsModal: false,
+                selectedService: null,
+
+                showServiceDetails(service) {
+                    this.selectedService = service;
+                    this.showDetailsModal = true;
+                },
+
+                async fetchServers() {
+                    try {
+                        let response = await fetch('http://192.168.32.29:30/nssm/sqlite-api/');
+                        let data = await response.json();
+                        this.servers = data;
+                    } catch (error) {
+                        console.error("Error fetching servers:", error);
+                        this.message = "Error fetching server list";
+                    }
+                },
+
+                async startService(serviceName) {
+                    if (!this.isLoggedIn) return;
+                    let response = await fetch(`${this.selectedServer}/services/${serviceName}/start`, { method: 'POST' });
+                    let data = await response.json();
+                    this.message = data.message || "Error starting service.";
+                    this.fetchServices();
+                },
+
+                async stopService(serviceName) {
+                    if (!this.isLoggedIn) return;
+                    let response = await fetch(`${this.selectedServer}/services/${serviceName}/stop`, { method: 'POST' });
+                    let data = await response.json();
+                    this.message = data.message || "Error stopping service.";
+                    this.fetchServices();
+                },
+
+                async removeService(serviceName) {
+                    if (!this.isLoggedIn) return;
+                    let response = await fetch(`${this.selectedServer}/services/${serviceName}`, { method: 'DELETE' });
+                    let data = await response.json();
+                    this.message = data.message || "Error removing service.";
+                    this.fetchServices();
+                },
+
+                async installService() {
+                    if (!this.isLoggedIn) return;
+                    let response = await fetch(`${this.selectedServer}/services`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.newService)
+                    });
+                    let data = await response.json();
+                    alert(data.message || "Error installing service.");
+                    this.showInstallModal = false;
+                    this.fetchServices();
+                },
+
+                async fetchServices() {
+                    try {
+                        this.isRefreshing = true;
+                        let response = await fetch(`${this.selectedServer}/services`);
+                        let data = await response.json();
+                        this.services = data.services;
+                    } catch (error) {
+                        console.error("Error fetching services:", error);
+                        this.message = "Error connecting to server";
+                    } finally {
+                        setTimeout(() => {
+                            this.isRefreshing = false;
+                        }, 1500);
+                    }
+                },
+
+                login() {
+                    if (this.loginForm.username === "admin" && this.loginForm.password === "admin") {
+                        this.isLoggedIn = true;
+                        localStorage.setItem("loggedIn", "true");
+                        this.showLoginModal = false;
+                        this.message = "Login successful!";
+                    } else {
+                        this.message = "Invalid credentials.";
+                    }
+                },
+
+                logout() {
+                    this.isLoggedIn = false;
+                    localStorage.removeItem("loggedIn");
+                    this.message = "Logged out successfully.";
+                },
+
+                startAutoRefresh() {
+                    if (this.refreshInterval) clearInterval(this.refreshInterval);
+                    this.refreshInterval = setInterval(() => {
+                        this.fetchServices();
+                    }, this.refreshRate * 1000);
+                },
+            };
+        }
+    </script>
+
+</body>
+</html>
